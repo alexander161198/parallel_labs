@@ -75,13 +75,13 @@ bool FEM::SolveSystem()
 	timespec start, end;
 	clock_gettime(CLOCK_MONOTONIC_RAW, &start);
 
-    #pragma omp parallel for num_threads(1) private(i, j, cur, elem, firstNotNull)
-
+    #pragma omp parallel for num_threads(8) private(i, j, cur, elem, firstNotNull)
 	for (cur = 0; cur < N; cur++)
 	{
 		if (A[cur][cur] == 0)					//если на диагонали 0
 		{
 			firstNotNull = -1;
+			//#pragma omp for
 			for (i = cur; i < N; i++)			//ищется 1 ненулевой элемент в столбце
 			{
 				if (A[i][cur] != 0)
@@ -102,11 +102,13 @@ bool FEM::SolveSystem()
 		}
 		if ((elem = A[cur][cur]) != 1)			//делаем на диагонали 1
 		{
+			//#pragma omp for
 			for (j = cur; j < N + 1; j++)
 			{
 				A[cur][j] /= elem;
 			}
 		}
+		//#pragma omp for
 		for (i = cur + 1; i < N; i++)			//приведение к верхнедиагональному виду
 		{
 			elem = A[i][cur];
@@ -128,8 +130,11 @@ bool FEM::SolveSystem()
 	double sum = 0.0;
 	X[N - 1] = A[N - 1][N];
 
+	#pragma omp parallel num_threads(8)  default(shared)
+	{
 	for (i = N - 2; i >= 0; i--)				//получение решения
 	{
+		#pragma omp for
 		for (j = i + 1; j < N; j++)
 		{
 			sum += A[i][j] * X[j];
@@ -137,6 +142,7 @@ bool FEM::SolveSystem()
 		X[i] = A[i][N] - sum;
 		sum = 0.0;
 	}
+}
 
 	return 1;
 }
@@ -357,7 +363,7 @@ void FEM::printFuncFEM()
 
 int main()
 {
-	FEM equation(30000);
+	FEM equation(40000);
 	//equation.printMatrix();
 	equation.GenerateMatrix();
 	//equation.GenerateMatrix_linear();
